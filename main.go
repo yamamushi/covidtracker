@@ -85,7 +85,7 @@ func main() {
 	log.Println("|| Initializing Stat Tracker ||")
 	statTracker := NewStatTracker(dg, &dbhandler)
 	//go statTracker.RunSidebarUpdater()
-	//go statTracker.RunCountryDataUpdater()
+	go statTracker.RunCountryDataUpdater()
 	go statTracker.RunUSADataUpdater()
 
 	log.Println("|| Initializing Command Parser ||")

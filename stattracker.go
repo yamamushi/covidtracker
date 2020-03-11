@@ -321,7 +321,8 @@ func (h *StatTracker) PostLatestEvent() (err error) {
 			if strings.Contains(channel.Name, "us-cases") {
 				output := ":newspaper: "
 				output = output + "\n"
-				output = output + "Cases: " + events[0].CasesRange + "\n"
+				output = output + "Case #s: " + events[0].CasesRange + "\n"
+				output = output + "Date: " + events[0].Date + "\n"
 
 				stateRole, err := GetRoleIDByName(h.dg, guild.ID, events[0].State)
 				if err == nil {
