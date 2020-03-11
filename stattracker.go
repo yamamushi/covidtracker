@@ -198,7 +198,7 @@ func (h *StatTracker) PostSidebarStatsToDiscord() (err error) {
 
 				time.Sleep(1 * time.Second)
 				updated = true
-				_, _ = h.dg.ChannelEdit(channel.ID, "UPDATED: "+t.Format("02/01 @ 3:04 p.m. MST"))
+				_, _ = h.dg.ChannelEdit(channel.ID, "UPDATED: "+t.Format("02/01 @ 3:04 PM MST"))
 				channels = MoveChannel(channels, sliceID, 4)
 			}
 		}
@@ -215,15 +215,134 @@ func (h *StatTracker) PostSidebarStatsToDiscord() (err error) {
 
 func (h *StatTracker) RunUSADataUpdater() {
 	for {
-		h.UpdateUSAStats()
+		err := h.UpdateUSAStats()
+		if err != nil {
+			log.Println("Error retrieving USA Stats: " + err.Error())
+		}
+		err = h.PostLatestEvent()
+		if err != nil {
+			log.Println("Error Posting Latest Event: " + err.Error())
+		}
 		time.Sleep(10 * time.Minute)
 	}
 }
 
 func (h *StatTracker) UpdateUSAStats() (err error) {
-	_, err = h.scraper.GetSiteRoot("https://coronavirus.1point3acres.com/en")
+	root, err := h.scraper.GetSiteRoot("http://coronavirus.1point3acres.com/en/")
 	if err != nil {
 		return err
 	}
+
+	eventsDiv := root.Find("div", "class", "ant-table-wrapper responsive-table")
+	trList := eventsDiv.FindAll("tr")
+	for _, tr := range trList {
+		tdlist := tr.FindAll("td")
+		if len(tdlist) == 6 {
+			eventRecord, err := h.db.GetEmptyCaseEntry()
+			if err != nil {
+				log.Println("Error retrieving new event record: " + err.Error())
+			}
+
+			span := tdlist[0].FindAll("span")
+			if len(span) > 0 {
+				//log.Println("Cases: " + span[0].Text())
+				eventRecord.CasesRange = span[0].Text()
+			}
+			//log.Println("Date: " + tdlist[1].Text())
+			eventRecord.Date = tdlist[1].Text()
+			//log.Println("State: " + tdlist[2].Text())
+			eventRecord.State = tdlist[2].Text()
+			//log.Println("County: " + tdlist[3].Text())
+			eventRecord.County = tdlist[3].Text()
+
+			// Descriptions don't work right now, everything is in chinese because it's handled in the browser
+			// And cloudflare is blocking headless browser requests
+			/*
+				descSpan := tdlist[4].FindAll("span")
+				if len(descSpan) > 0 {
+					log.Println("Description: " + descSpan[0].Text())
+				}
+			*/
+			aSpan := tdlist[5].FindAll("a")
+			if len(aSpan) > 0 {
+				//log.Println("Link: " + aSpan[0].Attrs()["href"])
+				eventRecord.Link = aSpan[0].Attrs()["href"]
+			}
+
+			existing, err := h.db.GetCaseEntryFromDB(eventRecord.CasesRange)
+			if err != nil {
+				if err.Error() != "No record found" {
+					return errors.New("error checking event entry: " + eventRecord.CasesRange)
+				} else {
+					tmp, err := h.db.GetEmptyCaseEntry()
+					if err != nil {
+						return err
+					}
+					eventRecord.ID = tmp.ID
+					eventRecord.Posted = false
+				}
+			} else {
+				eventRecord.ID = existing.ID
+				eventRecord.Posted = existing.Posted
+			}
+
+			err = h.db.AddCaseEntryToDB(eventRecord)
+			if err != nil {
+				return errors.New("error adding country stat: " + eventRecord.CasesRange)
+			}
+		}
+	}
+
+	return nil
+}
+
+func (h *StatTracker) PostLatestEvent() (err error) {
+	events, err := h.db.GetAllCaseEntryDB()
+	if err != nil {
+		return err
+	}
+
+	if len(events) < 1 {
+		return nil
+	}
+
+	if events[0].Posted {
+		return nil
+	}
+	log.Println(events[0])
+
+	for _, guild := range h.dg.State.Guilds {
+
+		channels, err := h.dg.GuildChannels(guild.ID)
+		if err != nil {
+			break
+		}
+		for _, channel := range channels {
+			if strings.Contains(channel.Name, "us-cases") {
+				output := ":newspaper: "
+				output = output + "\n"
+				output = output + "Cases: " + events[0].CasesRange + "\n"
+
+				stateRole, err := GetRoleIDByName(h.dg, guild.ID, events[0].State)
+				if err == nil {
+					output = output + "State: <@&" + stateRole + ">" + "\n"
+				} else {
+					output = output + "State: " + events[0].State + "\n"
+				}
+
+				output = output + "County: " + events[0].County + "\n"
+				output = output + "Link: " + events[0].Link + "\n"
+
+				_, _ = h.dg.ChannelMessageSend(channel.ID, output)
+			}
+		}
+	}
+
+	events[0].Posted = true
+	err = h.db.SetCaseEntry(events[0])
+	if err != nil {
+		return err
+	}
+
 	return nil
 }

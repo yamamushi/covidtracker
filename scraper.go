@@ -13,6 +13,7 @@ func NewScraper() (scraper *Scraper) {
 }
 
 func (h *Scraper) GetSiteRoot(url string) (root soup.Root, err error) {
+	soup.Header("Accept-Language", "en-us")
 	resp, err := soup.Get(url) // Append page=1000 so we get the last page
 	if err != nil {
 		return root, err

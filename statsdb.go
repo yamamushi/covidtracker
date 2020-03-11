@@ -13,7 +13,7 @@ type StatsDB struct {
 	casequerylocker      sync.RWMutex
 }
 
-type CaseEntryStats struct {
+type StateStats struct {
 	ID                   string
 	Name                 string
 	CaseEntryOfEmergency bool
@@ -42,12 +42,14 @@ type CountryStat struct {
 }
 
 type CaseEntry struct {
-	ID        string
-	CaseID    string
-	Date      string
-	CaseEntry string
-	County    string
-	Text      string
+	ID         string
+	CasesRange string
+	Date       string
+	Link       string
+	County     string
+	Text       string
+	State      string
+	Posted     bool
 }
 
 func NewStatsDB(db *DBHandler) (statsDB *StatsDB) {
@@ -64,22 +66,22 @@ func (h *StatsDB) GetEmptyCaseEntry() (entry CaseEntry, err error) {
 	return caseEntry, nil
 }
 
-func (h *StatsDB) SetCaseEntry(CaseEntry CaseEntry) (err error) {
-	CaseEntrydb, err := h.GetAllCaseEntryDB()
-	if len(CaseEntrydb) < 1 {
-		err = h.AddCaseEntryToDB(CaseEntry)
+func (h *StatsDB) SetCaseEntry(entry CaseEntry) (err error) {
+	entries, err := h.GetAllCaseEntryDB()
+	if len(entries) < 1 {
+		err = h.AddCaseEntryToDB(entry)
 		if err != nil {
 			return err
 		}
 		return nil
 	}
 
-	err = h.RemoveCaseEntryFromDB(CaseEntrydb[0])
+	err = h.RemoveCaseEntryFromDB(entry)
 	if err != nil {
 		return err
 	}
 
-	err = h.AddCaseEntryToDB(CaseEntry)
+	err = h.AddCaseEntryToDB(entry)
 	if err != nil {
 		return err
 	}
@@ -109,6 +111,7 @@ func (h *StatsDB) RemoveCaseEntryFromDB(entry CaseEntry) (err error) {
 }
 
 // RemoveCaseEntryFromDBByID function
+/*
 func (h *StatsDB) RemoveCaseEntryFromDBByID(caseID string) (err error) {
 	CaseEntry, err := h.GetCaseEntryFromDB(caseID)
 	if err != nil {
@@ -119,19 +122,19 @@ func (h *StatsDB) RemoveCaseEntryFromDBByID(caseID string) (err error) {
 	if err != nil {
 		return err
 	}
-
 	return nil
 }
+*/
 
 // GetCaseEntryFromDB function
-func (h *StatsDB) GetCaseEntryFromDB(caseID string) (entry CaseEntry, err error) {
+func (h *StatsDB) GetCaseEntryFromDB(cases string) (entry CaseEntry, err error) {
 	CaseEntryDB, err := h.GetAllCaseEntryDB()
 	if err != nil {
 		return entry, err
 	}
 
 	for _, i := range CaseEntryDB {
-		if i.CaseID == caseID {
+		if i.CasesRange == cases {
 			return i, nil
 		}
 	}
