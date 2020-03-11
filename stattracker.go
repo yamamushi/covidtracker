@@ -10,37 +10,38 @@ import (
 )
 
 type StatTracker struct {
-
 	scraper *Scraper
 	dg *discordgo.Session
+	db *StatsDB
 
 	Cases string
 	Deaths string
 	Recovered string
 	Unresolved string
-
 }
 
-func NewStatTracker(dg *discordgo.Session) (statTracker *StatTracker) {
+
+func NewStatTracker(dg *discordgo.Session, db *DBHandler) (statTracker *StatTracker) {
 
 	statTracker = &StatTracker{dg: dg}
 	statTracker.scraper = NewScraper()
+	statTracker.db = NewStatsDB(db)
 
 	return statTracker
 }
 
-func (h *StatTracker) Run() {
+func (h *StatTracker) RunSidebarUpdater() {
 	min := 10
 	max := 20
 
 	for{
 		log.Println("Running Update")
-		err := h.Update()
+		err := h.UpdateSidebarStats()
 		if err != nil {
 			log.Println("Could not retrieve updated stats: "+err.Error())
 		} else {
 			log.Println("Running Post")
-			err = h.PostToDiscord()
+			err = h.PostSidebarStatsToDiscord()
 			if err != nil {
 				log.Println("Could not post stats to Discord: "+err.Error())
 			}
@@ -50,8 +51,19 @@ func (h *StatTracker) Run() {
 	}
 }
 
-func (h *StatTracker) Update() (err error) {
+func (h *StatTracker) RunCountryDataUpdater() {
+	for {
+		time.Sleep(10*time.Minute)
+	}
+}
 
+func (h *StatTracker) RunUSADataUpdater() {
+	for {
+		time.Sleep(10*time.Minute)
+	}
+}
+
+func (h *StatTracker) UpdateSidebarStats() (err error) {
 	root, err := h.scraper.GetSiteRoot("https://docs.google.com/spreadsheets/u/0/d/e/2PACX-1vR30F8lYP3jG7YOq8es0PBpJIE5yvRVZffOyaqC0GgMBN6yt0Q-NI8pxS7hd1F9dYXnowSC6zpZmW9D/pubhtml/sheet?headers=false&gid=0")
 	if err != nil {
 		return err
@@ -83,7 +95,7 @@ func (h *StatTracker) Update() (err error) {
 }
 
 
-func (h *StatTracker) PostToDiscord() (err error) {
+func (h *StatTracker) PostSidebarStatsToDiscord() (err error) {
 
 	for _, guild := range h.dg.State.Guilds {
 

@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"github.com/asdine/storm"
 	"github.com/bwmarrin/discordgo"
 	"log"
 	"os"
@@ -70,9 +71,28 @@ func main(){
 	log.Println("Connection Established")
 	defer dg.Close()
 
+
+	// Create / open our embedded database
+	db, err := storm.Open(conf.DBConfig.DBFile)
+	if err != nil {
+		log.Fatal(err)
+		return
+	}
+	defer db.Close()
+	// Run a quick first time db configuration to verify that it is working properly
+	log.Println("Checking Database")
+	dbhandler := DBHandler{conf: &conf, rawdb: db}
+
 	log.Println("|| Initializing Stat Tracker ||")
-	statTracker := NewStatTracker(dg)
-	go statTracker.Run()
+	statTracker := NewStatTracker(dg, &dbhandler)
+	go statTracker.RunSidebarUpdater()
+	go statTracker.RunCountryDataUpdater()
+	go statTracker.RunUSADataUpdater()
+
+	log.Println("|| Initializing Command Parser ||")
+	commandParser := NewCommandParser(dg)
+	dg.AddHandler(commandParser.Read)
+
 	log.Println("|| Main Handler Initialized ||")
 
 	// Wait here until CTRL-C or other term signal is received.
