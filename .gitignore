@@ -1,0 +1,7 @@
+*.conf
+.idea/*
+covidtracker_dev
+covidtracker
+deploy.sh
+token.json
+credentials.json 
