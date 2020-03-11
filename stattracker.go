@@ -5,6 +5,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"log"
 	"math/rand"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -215,15 +216,18 @@ func (h *StatTracker) PostSidebarStatsToDiscord() (err error) {
 
 func (h *StatTracker) RunUSADataUpdater() {
 	for {
+		log.Println("Updating USA Stats")
 		err := h.UpdateUSAStats()
 		if err != nil {
 			log.Println("Error retrieving USA Stats: " + err.Error())
+		} else {
+			log.Println("Posting Latest USA Events")
+			err = h.PostLatestEvent()
+			if err != nil {
+				log.Println("Error Posting Latest Event: " + err.Error())
+			}
 		}
-		err = h.PostLatestEvent()
-		if err != nil {
-			log.Println("Error Posting Latest Event: " + err.Error())
-		}
-		time.Sleep(10 * time.Minute)
+		time.Sleep(2 * time.Minute)
 	}
 }
 
@@ -247,6 +251,8 @@ func (h *StatTracker) UpdateUSAStats() (err error) {
 			if len(span) > 0 {
 				//log.Println("Cases: " + span[0].Text())
 				eventRecord.CasesRange = span[0].Text()
+			} else {
+				break
 			}
 			//log.Println("Date: " + tdlist[1].Text())
 			eventRecord.Date = tdlist[1].Text()
@@ -269,7 +275,7 @@ func (h *StatTracker) UpdateUSAStats() (err error) {
 				eventRecord.Link = aSpan[0].Attrs()["href"]
 			}
 
-			existing, err := h.db.GetCaseEntryFromDB(eventRecord.CasesRange)
+			_, err = h.db.GetCaseEntryFromDB(eventRecord.CasesRange)
 			if err != nil {
 				if err.Error() != "No record found" {
 					return errors.New("error checking event entry: " + eventRecord.CasesRange)
@@ -278,17 +284,15 @@ func (h *StatTracker) UpdateUSAStats() (err error) {
 					if err != nil {
 						return err
 					}
+					log.Println("Adding Event Record: " + eventRecord.CasesRange)
 					eventRecord.ID = tmp.ID
 					eventRecord.Posted = false
+					eventRecord.Time = int(time.Now().UnixNano())
+					err = h.db.AddCaseEntryToDB(eventRecord)
+					if err != nil {
+						return errors.New("error adding event: " + eventRecord.CasesRange + " " + err.Error())
+					}
 				}
-			} else {
-				eventRecord.ID = existing.ID
-				eventRecord.Posted = existing.Posted
-			}
-
-			err = h.db.AddCaseEntryToDB(eventRecord)
-			if err != nil {
-				return errors.New("error adding country stat: " + eventRecord.CasesRange)
 			}
 		}
 	}
@@ -306,43 +310,58 @@ func (h *StatTracker) PostLatestEvent() (err error) {
 		return nil
 	}
 
-	if events[0].Posted {
-		return nil
+	var events_map = make(map[string]CaseEntry)
+	for i, event := range events {
+		events_map[strconv.Itoa(i)] = event
 	}
-	log.Println(events[0])
 
-	for _, guild := range h.dg.State.Guilds {
+	date_sorted_events := make(timeSlice, 0, len(events_map))
+	for _, d := range events {
+		date_sorted_events = append(date_sorted_events, d)
+	}
+	sort.Sort(date_sorted_events)
+	//currentEvent := date_sorted_events[len(date_sorted_events)-1]
+	//log.Println("Attempting: " + currentEvent.CasesRange)
 
-		channels, err := h.dg.GuildChannels(guild.ID)
-		if err != nil {
-			break
-		}
-		for _, channel := range channels {
-			if strings.Contains(channel.Name, "us-cases") {
-				output := ":newspaper: "
-				output = output + "\n"
-				output = output + "Case #s: " + events[0].CasesRange + "\n"
-				output = output + "Date: " + events[0].Date + "\n"
+	for i := len(date_sorted_events) - 1; i >= 0; i-- {
+		currentEvent := date_sorted_events[i]
+		//log.Println(currentEvent.Time)
+		if !currentEvent.Posted && currentEvent.Time > 1583945039705795000 {
+			currentEvent.Posted = true
+			err = h.db.SetCaseEntry(currentEvent)
+			if err != nil {
+				return err
+			}
 
-				stateRole, err := GetRoleIDByName(h.dg, guild.ID, events[0].State)
-				if err == nil {
-					output = output + "State: <@&" + stateRole + ">" + "\n"
-				} else {
-					output = output + "State: " + events[0].State + "\n"
+			log.Println("Posting: " + currentEvent.CasesRange)
+			for _, guild := range h.dg.State.Guilds {
+
+				channels, err := h.dg.GuildChannels(guild.ID)
+				if err != nil {
+					break
 				}
+				for _, channel := range channels {
+					if strings.Contains(channel.Name, "us-cases") {
+						output := ":newspaper: "
+						output = output + "\n"
+						output = output + "Case #s: " + currentEvent.CasesRange + "\n"
+						output = output + "Date: " + currentEvent.Date + "\n"
 
-				output = output + "County: " + events[0].County + "\n"
-				output = output + "Link: " + events[0].Link + "\n"
+						stateRole, err := GetRoleIDByName(h.dg, guild.ID, currentEvent.State)
+						if err == nil {
+							output = output + "State: <@&" + stateRole + ">" + "\n"
+						} else {
+							output = output + "State: " + currentEvent.State + "\n"
+						}
 
-				_, _ = h.dg.ChannelMessageSend(channel.ID, output)
+						output = output + "County: " + currentEvent.County + "\n"
+						output = output + "Link: " + currentEvent.Link + "\n"
+
+						_, _ = h.dg.ChannelMessageSend(channel.ID, output)
+					}
+				}
 			}
 		}
-	}
-
-	events[0].Posted = true
-	err = h.db.SetCaseEntry(events[0])
-	if err != nil {
-		return err
 	}
 
 	return nil

@@ -120,11 +120,14 @@ func (h *CommandParser) CheckStats(payload string, s *discordgo.Session, m *disc
 			}
 		}
 
+		unresolved := cases - recovered
+
 		output := ":bulb: Global Case Stats ```\n"
 		output = output + "Cases: " + humanize.Comma(int64(cases)) + "\n"
 		output = output + "Deaths: " + humanize.Comma(int64(deaths)) + "\n"
 		output = output + "Critical: " + humanize.Comma(int64(critical)) + "\n"
 		output = output + "Serious: " + humanize.Comma(int64(serious)) + "\n"
+		output = output + "Unresolved: " + humanize.Comma(int64(unresolved)) + "\n"
 		output = output + "Recovered: " + humanize.Comma(int64(recovered)) + "\n"
 		output = output + "```"
 

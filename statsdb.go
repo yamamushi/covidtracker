@@ -50,6 +50,7 @@ type CaseEntry struct {
 	Text       string
 	State      string
 	Posted     bool
+	Time       int
 }
 
 func NewStatsDB(db *DBHandler) (statsDB *StatsDB) {

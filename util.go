@@ -98,3 +98,17 @@ func RemoveStringFromSlice(s []string, r string) []string {
 	}
 	return s
 }
+
+type timeSlice []CaseEntry
+
+func (p timeSlice) Len() int {
+	return len(p)
+}
+
+func (p timeSlice) Less(i, j int) bool {
+	return p[i].Time < p[j].Time
+}
+
+func (p timeSlice) Swap(i, j int) {
+	p[i], p[j] = p[j], p[i]
+}
