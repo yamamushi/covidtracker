@@ -5,7 +5,6 @@ import (
 )
 
 type Scraper struct {
-
 }
 
 func NewScraper() (scraper *Scraper) {
@@ -22,5 +21,3 @@ func (h *Scraper) GetSiteRoot(url string) (root soup.Root, err error) {
 	root = soup.HTMLParse(resp)
 	return root, nil
 }
-
-

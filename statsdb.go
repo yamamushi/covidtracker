@@ -6,48 +6,51 @@ import (
 )
 
 type StatsDB struct {
-	db          *DBHandler
+	db                   *DBHandler
 	CaseEntryquerylocker sync.RWMutex
-	cityquerylocker sync.RWMutex
-	countryquerylocker sync.RWMutex
-	casequerylocker sync.RWMutex
+	cityquerylocker      sync.RWMutex
+	countryquerylocker   sync.RWMutex
+	casequerylocker      sync.RWMutex
 }
 
 type CaseEntryStats struct {
-	Name string
+	ID                   string
+	Name                 string
 	CaseEntryOfEmergency bool
-	Confirmed string
-	New string
-	Deaths string
-	Cities []CityStats
+	Confirmed            string
+	New                  string
+	Deaths               string
+	Cities               []CityStats
 }
 
 type CityStats struct {
-	Name string
+	ID        string
+	Name      string
 	Confirmed string
-	New string
-	Deaths string
+	New       string
+	Deaths    string
 }
 
-type CountryStats struct {
-	Name string
-	Cased string
-	Deaths string
-	Serious string
-	Critical string
+type CountryStat struct {
+	ID        string
+	Name      string
+	Cases     string
+	Deaths    string
+	Serious   string
+	Critical  string
 	Recovered string
 }
 
 type CaseEntry struct {
-	ID string
-	CaseID string
-	Date string
+	ID        string
+	CaseID    string
+	Date      string
 	CaseEntry string
-	County string
-	Text string
+	County    string
+	Text      string
 }
 
-func NewStatsDB(db *DBHandler) (statsDB *StatsDB){
+func NewStatsDB(db *DBHandler) (statsDB *StatsDB) {
 	statsDB = &StatsDB{db: db}
 	return statsDB
 }
@@ -163,4 +166,113 @@ func (h *StatsDB) UpdateCaseEntry(entry CaseEntry) (err error) {
 	return err
 }
 
+func (h *StatsDB) GetEmptyCountryStat() (stat CountryStat, err error) {
+	uuid, err := GetUUID()
+	if err != nil {
+		return stat, err
+	}
+	stat = CountryStat{ID: uuid}
+	return stat, nil
+}
 
+func (h *StatsDB) SetCountryStat(stat CountryStat) (err error) {
+	countryStatsDB, err := h.GetAllCountryStatsDB()
+	if len(countryStatsDB) < 1 {
+		err = h.AddCountryStatToDB(stat)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+
+	err = h.RemoveCountryStatFromDB(stat)
+	if err != nil {
+		return err
+	}
+
+	err = h.AddCountryStatToDB(stat)
+	if err != nil {
+		return err
+	}
+
+	return nil
+
+}
+
+// AddCaseEntryToDB function
+func (h *StatsDB) AddCountryStatToDB(stat CountryStat) (err error) {
+	h.countryquerylocker.Lock()
+	defer h.countryquerylocker.Unlock()
+
+	db := h.db.rawdb.From("CountryStatsDB")
+	err = db.Save(&stat)
+	return err
+}
+
+// RemoveCaseEntryFromDB function
+func (h *StatsDB) RemoveCountryStatFromDB(stat CountryStat) (err error) {
+	h.countryquerylocker.Lock()
+	defer h.countryquerylocker.Unlock()
+
+	db := h.db.rawdb.From("CountryStatsDB")
+	err = db.DeleteStruct(&stat)
+	return err
+}
+
+// RemoveCaseEntryFromDBByID function
+func (h *StatsDB) RemoveCountryStatFromDBByName(name string) (err error) {
+	CaseEntry, err := h.GetCaseEntryFromDB(name)
+	if err != nil {
+		return err
+	}
+
+	err = h.RemoveCaseEntryFromDB(CaseEntry)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// GetCaseEntryFromDB function
+func (h *StatsDB) GetCountryStatFromDB(name string) (entry CountryStat, err error) {
+	stats, err := h.GetAllCountryStatsDB()
+	if err != nil {
+		return entry, err
+	}
+
+	for _, i := range stats {
+		if i.Name == name {
+			return i, nil
+		}
+	}
+	return entry, errors.New("No record found")
+}
+
+// GetAllCaseEntryDB function
+func (h *StatsDB) GetAllCountryStatsDB() (stats []CountryStat, err error) {
+	h.countryquerylocker.Lock()
+	defer h.countryquerylocker.Unlock()
+
+	db := h.db.rawdb.From("CountryStatsDB")
+	err = db.All(&stats)
+	if err != nil {
+		return stats, err
+	}
+
+	return stats, nil
+}
+
+func (h *StatsDB) UpdateCountryStat(stat CountryStat) (err error) {
+	h.countryquerylocker.Lock()
+	defer h.countryquerylocker.Unlock()
+
+	db := h.db.rawdb.From("CountryStatsDB")
+
+	err = db.DeleteStruct(&stat)
+	if err != nil {
+		return err
+	}
+	err = db.Save(&stat)
+	return err
+}

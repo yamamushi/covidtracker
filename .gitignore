@@ -3,3 +3,4 @@
 covidtracker_dev
 covidtracker
 deploy.sh
+*.db 

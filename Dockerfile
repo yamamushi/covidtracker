@@ -19,6 +19,7 @@ RUN go get github.com/anaskhan96/soup
 RUN cd /go/src/github.com/anaskhan96/soup && git checkout ad448eafe
 RUN go get github.com/bwmarrin/discordgo
 RUN go get github.com/BurntSushi/toml
+RUN go get github.com/dustin/go-humanize
 
 
 # Install and run du-discordbot

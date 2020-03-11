@@ -28,7 +28,7 @@ func init() {
 	}
 }
 
-func main(){
+func main() {
 
 	log.Println("|| Starting CovidTracker Bot ||")
 	//log.SetOutput(ioutil.Discard)
@@ -71,7 +71,6 @@ func main(){
 	log.Println("Connection Established")
 	defer dg.Close()
 
-
 	// Create / open our embedded database
 	db, err := storm.Open(conf.DBConfig.DBFile)
 	if err != nil {
@@ -85,12 +84,12 @@ func main(){
 
 	log.Println("|| Initializing Stat Tracker ||")
 	statTracker := NewStatTracker(dg, &dbhandler)
-	go statTracker.RunSidebarUpdater()
+	//go statTracker.RunSidebarUpdater()
 	go statTracker.RunCountryDataUpdater()
 	go statTracker.RunUSADataUpdater()
 
 	log.Println("|| Initializing Command Parser ||")
-	commandParser := NewCommandParser(dg)
+	commandParser := NewCommandParser(dg, &conf, statTracker.db)
 	dg.AddHandler(commandParser.Read)
 
 	log.Println("|| Main Handler Initialized ||")

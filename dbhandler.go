@@ -38,4 +38,3 @@ func (h *DBHandler) Update(object interface{}) error {
 	}
 	return nil
 }
-
