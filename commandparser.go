@@ -1,8 +1,10 @@
 package main
 
 import (
+	"errors"
 	"github.com/bwmarrin/discordgo"
 	"github.com/dustin/go-humanize"
+	emoji "github.com/tmdvs/Go-Emoji-Utils"
 	"log"
 	"strconv"
 	"strings"
@@ -54,10 +56,20 @@ func (h *CommandParser) Read(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
+	if len(m.Mentions) > 0 {
+		for _, mention := range m.Mentions {
+			if mention.ID == s.State.User.ID {
+				h.CheckStats(payload, s, m)
+				return
+			}
+		}
+	}
+
 }
 
 func (h *CommandParser) CheckStats(payload string, s *discordgo.Session, m *discordgo.MessageCreate) {
 
+	var err error
 	if payload == "" {
 		countryStats, err := h.stats.GetAllCountryStatsDB()
 		if err != nil {
@@ -120,6 +132,14 @@ func (h *CommandParser) CheckStats(payload string, s *discordgo.Session, m *disc
 		return
 	}
 
+	emojis := emoji.FindAll(payload)
+	if len(emojis) > 0 {
+		payload, err = h.FlagToCountry(payload)
+		if err != nil {
+			_, _ = s.ChannelMessageSend(m.ChannelID, "Error reading input: "+payload)
+		}
+	}
+
 	payload = strings.TrimSpace(payload)
 	if payload == "china" {
 		payload = "mainland china"
@@ -163,5 +183,18 @@ func (h *CommandParser) CheckStats(payload string, s *discordgo.Session, m *disc
 		return
 	}
 
-	_, _ = s.ChannelMessageSend(m.ChannelID, "No data for "+payload+" found.")
+	_, _ = s.ChannelMessageSend(m.ChannelID, "No data for "+strings.Title(payload)+" found.")
+}
+
+func (h *CommandParser) FlagToCountry(payload string) (country string, err error) {
+
+	emojis := emoji.FindAll(payload)
+	if len(emojis) > 0 {
+		found := emojis[0].Match.(emoji.Emoji)
+		description := strings.TrimPrefix(found.Descriptor, "Flag:")
+		description = strings.TrimSpace(description)
+		return strings.ToLower(description), nil
+	} else {
+		return "", errors.New("no emoji match found")
+	}
 }

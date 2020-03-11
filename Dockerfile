@@ -20,6 +20,9 @@ RUN cd /go/src/github.com/anaskhan96/soup && git checkout ad448eafe
 RUN go get github.com/bwmarrin/discordgo
 RUN go get github.com/BurntSushi/toml
 RUN go get github.com/dustin/go-humanize
+RUN go get github.com/asdine/storm
+RUN go get github.com/gofrs/uuid
+RUN go get github.com/tmdvs/Go-Emoji-Utils
 
 
 # Install and run du-discordbot
